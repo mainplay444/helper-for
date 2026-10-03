@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ToolBox — полезные инструменты</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#07111f;color:#fff}
+header{background:linear-gradient(135deg,#172b55,#4058c9);padding:35px 15px;text-align:center}
+h1{margin:0;font-size:40px}
+header p{color:#dce3ff}
+#search{width:min(700px,95%);padding:15px;border:0;border-radius:12px;font-size:16px;background:#fff;color:#111}
+main{max-width:1250px;margin:auto;padding:20px}
+.categories{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px}
+.categories button{padding:9px 14px;border:1px solid #31476c;border-radius:20px;background:#12213a;color:#fff;cursor:pointer}
+.categories button.active,.categories button:hover{background:#6678ff}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.tool{background:#101d31;border:1px solid #2b4165;border-radius:16px;padding:18px}
+.tool h2{font-size:19px;margin:0 0 5px}
+.tool small{color:#91a0b9}
+.tool input,.tool textarea{width:100%;padding:10px;margin-top:9px;background:#07111f;border:1px solid #304766;border-radius:8px;color:#fff}
+.tool textarea{min-height:80px;resize:vertical}
+.tool button.run{width:100%;padding:10px;margin-top:8px;background:#6678ff;border:0;border-radius:8px;color:#fff;font-weight:bold;cursor:pointer}
+.result{margin-top:9px;padding:10px;min-height:38px;background:#050a12;border-radius:8px;white-space:pre-wrap;word-break:break-word}
+footer{text-align:center;padding:30px;color:#7788a8}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<header>
+<h1>🛠️ ToolBox</h1>
+<p><span id="count">56</span> полезных инструментов</p>
+<input id="search" type="search" placeholder="🔎 Поиск инструмента...">
+</header>
+
+<main>
+<div id="categories" class="categories"></div>
+<div id="tools" class="grid"></div>
+<div id="nothing" class="result hidden">Ничего не найдено.</div>
+</main>
+
+<footer>ToolBox © 2026</footer>
+
+<script>
+"use strict";
+
+const toolNames = [
+["Генераторы","🔐","Генератор паролей"],
+["Генераторы","🎲","Случайное число"],
+["Генераторы","🎮","Генератор никнеймов"],
+["Генераторы","🆔","UUID"],
+["Генераторы","🔢","PIN-код"],
+["Генераторы","🪙","Монетка"],
+["Генераторы","🎯","D6"],
+["Генераторы","🎲","D20"],
+["Генераторы","🔀","Случайный выбор"],
+["Генераторы","💡","Генератор идей"],
+
+["Текст","📝","Счётчик текста"],
+["Текст","🔠","Верхний регистр"],
+["Текст","🔡","Нижний регистр"],
+["Текст","🔁","Перевернуть текст"],
+["Текст","🧹","Удалить лишние пробелы"],
+["Текст","🔢","Нумерация строк"],
+["Текст","🧹","Удалить пустые строки"],
+["Текст","🔍","Поиск слова"],
+["Текст","🔤","Количество букв"],
+["Текст","📊","Количество слов"],
+
+["Математика","🧮","Калькулятор"],
+["Математика","📊","Процент"],
+["Математика","💰","Скидка"],
+["Математика","📐","Площадь круга"],
+["Математика","📦","Объём куба"],
+["Математика","📈","Среднее значение"],
+["Математика","📈","Изменение процентов"],
+["Математика","⚖️","ИМТ"],
+
+["Конвертеры","📏","См → м"],
+["Конвертеры","📏","М → км"],
+["Конвертеры","📐","Дюймы → см"],
+["Конвертеры","🌡️","°C → °F"],
+["Конвертеры","🌡️","°F → °C"],
+["Конвертеры","💾","MB → GB"],
+["Конвертеры","🚗","Км/ч → м/с"],
+["Конвертеры","⚡","Вт × часы"],
+
+["Кодирование","🔄","Base64"],
+["Кодирование","🔗","URL Encode"],
+["Кодирование","🔗","URL Decode"],
+["Кодирование","🧩","JSON Formatter"],
+["Кодирование","🗜️","JSON Minifier"],
+["Кодирование","HTML","HTML Escape"],
+
+["Разработка","🔑","SHA-256"],
+["Разработка","🕒","ISO дата"],
+["Разработка","⏱️","Unix Timestamp"],
+["Разработка","📱","QR-код"],
+
+["Время","📅","Дни между датами"],
+["Время","⏲️","Таймер"],
+["Время","⏱️","Секундомер"],
+
+["Цвета","🎨","Генератор HEX"],
+["Цвета","🌈","RGB → HEX"],
+["Цвета","🌈","HEX → RGB"],
+
+["Утилиты","📋","Копировать текст"],
+["Утилиты","📄","Скачать TXT"],
+["Утилиты","🔊","Генератор звука"],
+["Утилиты","📊","Lorem Ipsum"]
+];
+
+const toolsBox=document.getElementById("tools");
+const search=document.getElementById("search");
+const nothing=document.getElementById("nothing");
+const categoriesBox=document.getElementById("categories");
+
+let activeCategory="Все";
+
+function makeTool(tool,index){
+    const [cat,icon,name]=tool;
+    const card=document.createElement("section");
+    card.className="tool";
+    card.dataset.name=(cat+" "+name).toLowerCase();
+
+    card.innerHTML=`
+        <h2>${icon} ${name}</h2>
+        <small>${cat}</small>
+        <input id="input-${index}" placeholder="Введите значение...">
+        <button class="run" data-index="${index}">Запустить</button>
+        <div class="result" id="result-${index}">—</div>
+    `;
+
+    card.querySelector("button").addEventListener("click",()=>runTool(index));
+    return card;
+}
+
+function showAllTools(){
+    toolsBox.innerHTML="";
+    toolNames.forEach((tool,index)=>{
+        toolsBox.appendChild(makeTool(tool,index));
+    });
+    document.getElementById("count").textContent=toolNames.length;
+}
+
+function renderCategories(){
+    categoriesBox.innerHTML="";
+    const cats=["Все",...new Set(toolNames.map(t=>t[0]))];
+
+    cats.forEach(cat=>{
+        const button=document.createElement("button");
+        button.textContent=cat;
+        if(cat===activeCategory)button.classList.add("active");
+
+        button.addEventListener("click",()=>{
+            activeCategory=cat;
+            renderCategories();
+            filterTools();
+        });
+
+        categoriesBox.appendChild(button);
+    });
+}
+
+function filterTools(){
+    const query=search.value.trim().toLowerCase();
+    let visible=0;
+
+    document.querySelectorAll(".tool").forEach(card=>{
+        const category=card.querySelector("small").textContent;
+        const matchCategory=activeCategory==="Все" || category===activeCategory;
+        const matchSearch=card.dataset.name.includes(query);
+
+        if(matchCategory && matchSearch){
+            card.classList.remove("hidden");
+            visible++;
+        }else{
+            card.classList.add("hidden");
+        }
+    });
+
+    nothing.classList.toggle("hidden",visible!==0);
+}
+
+search.addEventListener("input",filterTools);
+
+/* Запускаем отображение СРАЗУ при открытии */
+showAllTools();
+renderCategories();
+filterTools();
+
+function runTool(i){
+    const name=toolNames[i][2];
+    const input=document.getElementById("input-"+i);
+    const result=document.getElementById("result-"+i);
+    const value=input.value;
+
+    let answer="";
+
+    if(name==="Генератор паролей"){
+        const chars="ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*";
+        const a=new Uint32Array(18);
+        crypto.getRandomValues(a);
+        answer=[...a].map(x=>chars[x%chars.length]).join("");
+    }
+    else if(name==="Случайное число"){
+        const p=value.split(/[, ]+/).map(Number);
+        const min=Number.isFinite(p[0])?p[0]:1;
+        const max=Number.isFinite(p[1])?p[1]:100;
+        answer=Math.floor(Math.random()*(max-min+1))+min;
+    }
+    else if(name==="Генератор никнеймов"){
+        const a=["Dark","Mega","Cyber","Fire","Ice","Shadow","Lucky","Epic"];
+        const b=["Wolf","Tiger","Dragon","Fox","Miner","Gamer","Builder","Knight"];
+        answer=a[Math.floor(Math.random()*a.length)]+b[Math.floor(Math.random()*b.length)]+Math.floor(Math.random()*9999);
+    }
+    else if(name==="UUID") answer=crypto.randomUUID();
+    else if(name==="PIN-код"){
+        const n=Math.max(4,Math.min(20,Number(value)||6));
+        const a=new Uint32Array(n);
+        crypto.getRandomValues(a);
+        answer=[...a].map(x=>x%10).join("");
+    }
+    else if(name==="Монетка") answer=Math.random()<.5?"Орёл":"Решка";
+    else if(name==="D6") answer=Math.floor(Math.random()*6)+1;
+    else if(name==="D20") answer=Math.floor(Math.random()*20)+1;
+    else if(name==="Генератор идей"){
+        answer=["Minecraft-сайт","PC Builder","Генератор QR-кодов","Каталог серверов","Конвертер файлов","Учебный помощник"][Math.floor(Math.random()*6)];
+    }
+    else if(name==="Счётчик текста"){
+        answer=`Символов: ${value.length}\nСлов: ${(value.trim().match(/\S+/g)||[]).length}\nСтрок: ${value?value.split("\n").length:0}`;
+    }
+    else if(name==="Верхний регистр") answer=value.toUpperCase();
+    else if(name==="Нижний регистр") answer=value.toLowerCase();
+    else if(name==="Перевернуть текст") answer=[...value].reverse().join("");
+    else if(name==="Удалить лишние пробелы") answer=value.replace(/\s+/g," ").trim();
+    else if(name==="Нумерация строк") answer=value.split("\n").map((x,n)=>(n+1)+". "+x).join("\n");
+    else if(name==="Удалить пустые строки") answer=value.split("\n").filter(x=>x.trim()).join("\n");
+    else if(name==="Количество букв") answer="Букв: "+(value.match(/[A-Za-zА-Яа-яЁё]/g)||[]).length;
+    else if(name==="Количество слов") answer="Слов: "+(value.trim().match(/\S+/g)||[]).length;
+    else if(name==="Калькулятор"){
+        try{
+            if(!/^[0-9+\-*/().%\s]+$/.test(value))throw Error();
+            answer=Function("return "+value)();
+        }catch(e){answer="Ошибка в выражении";}
+    }
+    else if(name==="Процент"){
+        const p=value.split(/[, ]+/).map(Number);
+        answer=p[0]*p[1]/100;
+    }
+    else if(name==="Скидка"){
+        const p=value.split(/[, ]+/).map(Number);
+        const saved=p[0]*p[1]/100;
+        answer=`Итог: ${(p[0]-saved).toFixed(2)}\nЭкономия: ${saved.toFixed(2)}`;
+    }
+    else if(name==="Площадь круга") answer=(Math.PI*Number(value)**2).toFixed(4);
+    else if(name==="Объём куба") answer=Number(value)**3;
+    else if(name==="Среднее значение"){
+        const a=value.split(",").map(Number).filter(Number.isFinite);
+        answer=a.length?a.reduce((x,y)=>x+y,0)/a.length:"Ошибка";
+    }
+    else if(name==="Изменение процентов"){
+        const p=value.split(/[, ]+/).map(Number);
+        answer=p[0]?((p[1]-p[0])/p[0]*100).toFixed(2)+" %":"Ошибка";
+    }
+    else if(name==="ИМТ"){
+        const p=value.split(/[, ]+/).map(Number);
+        answer=p[0]&&p[1]?(p[0]/(p[1]/100)**2).toFixed(2):"Введи вес и рост";
+    }
+    else if(name==="См → м") answer=Number(value)/100+" м";
+    else if(name==="М → км") answer=Number(value)/1000+" км";
+    else if(name==="Дюймы → см") answer=(Number(value)*2.54).toFixed(2)+" см";
+    else if(name==="°C → °F") answer=(Number(value)*9/5+32).toFixed(2)+" °F";
+    else if(name==="°F → °C") answer=((Number(value)-32)*5/9).toFixed(2)+" °C";
+    else if(name==="MB → GB") answer=(Number(value)/1024).toFixed(4)+" GB";
+    else if(name==="Км/ч → м/с") answer=(Number(value)/3.6).toFixed(3)+" м/с";
+    else if(name==="Вт × часы"){
+        const p=value.split(/[, ]+/).map(Number);
+        answer=p[0]*p[1]+" Wh";
+    }
+    else if(name==="Base64"){
+        try{answer=btoa(unescape(encodeURIComponent(value)))}catch(e){answer="Ошибка";}
+    }
+    else if(name==="URL Encode") answer=encodeURIComponent(value);
+    else if(name==="URL Decode"){
+        try{answer=decodeURIComponent(value)}catch(e){answer="Ошибка";}
+    }
+    else if(name==="JSON Formatter"){
+        try{answer=JSON.stringify(JSON.parse(value),null,2)}catch(e){answer="Неверный JSON";}
+    }
+    else if(name==="JSON Minifier"){
+        try{answer=JSON.stringify(JSON.parse(value))}catch(e){answer="Неверный JSON";}
+    }
+    else if(name==="HTML Escape"){
+        answer=value.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+    }
+    else if(name==="SHA-256"){
+        crypto.subtle.digest("SHA-256",new TextEncoder().encode(value)).then(buffer=>{
+            result.textContent=[...new Uint8Array(buffer)].map(x=>x.toString(16).padStart(2,"0")).join("");
+        });
+        return;
+    }
+    else if(name==="ISO дата") answer=new Date().toISOString();
+    else if(name==="Unix Timestamp") answer=Math.floor(Date.now()/1000);
+    else if(name==="Дни между датами"){
+        const p=value.split(/[, ]+/);
+        const a=new Date(p[0]),b=new Date(p[1]);
+        answer=isNaN(a)||isNaN(b)?"Введите две даты YYYY-MM-DD":Math.abs(Math.round((b-a)/86400000))+" дней";
+    }
+    else if(name==="Генератор HEX"){
+        const a=new Uint8Array(3);crypto.getRandomValues(a);
+        answer="#"+[...a].map(x=>x.toString(16).padStart(2,"0")).join("");
+    }
+    else if(name==="RGB → HEX"){
+        const a=value.split(/[, ]+/).map(Number);
+        answer="#"+a.map(x=>Math.max(0,Math.min(255,x)).toString(16).padStart(2,"0")).join("");
+    }
+    else if(name==="HEX → RGB"){
+        const h=value.replace("#","");
+        answer=/^[0-9a-f]{6}$/i.test(h)?`RGB(${parseInt(h.slice(0,2),16)}, ${parseInt(h.slice(2,4),16)}, ${parseInt(h.slice(4),16)})`:"Неверный HEX";
+    }
+    else if(name==="Копировать текст"){
+        navigator.clipboard?.writeText(value);
+        answer="✅ Скопировано";
+    }
+    else if(name==="Скачать TXT"){
+        const a=document.createElement("a");
+        a.href=URL.createObjectURL(new Blob([value],{type:"text/plain"}));
+        a.download="toolbox.txt";
+        a.click();
+        answer="Файл скачан";
+    }
+    else if(name==="Генератор звука"){
+        const AC=window.AudioContext||window.webkitAudioContext;
+        if(AC){
+            const c=new AC(),o=c.createOscillator();
+            o.frequency.value=Number(value)||440;
+            o.connect(c.destination);o.start();o.stop(c.currentTime+.4);
+            answer="Звук воспроизведён";
+        }else answer="Браузер не поддерживает звук";
+    }
+    else if(name==="Lorem Ipsum"){
+        answer="Lorem ipsum dolor sit amet, consectetur adipiscing elit. ".repeat(8);
+    }
+    else answer="Введите данные и нажмите «Запустить».";
+
+    result.textContent=answer;
+}
+</script>
+</body>
+</html>
